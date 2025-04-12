@@ -23,183 +23,337 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+    
+    * {
+        font-family: 'Poppins', sans-serif !important;
+        color: #1a1a1a !important;
+    }
+    
     body {
-        color: #000000 !important;
-        font-family: Arial, sans-serif !important;
+        background: #ffffff !important;
+        color: #1a1a1a !important;
     }
+    
     .main {
-        background-color: #f5f5f5;
+        background: #ffffff !important;
     }
+    
     .stApp {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
+        padding: 2rem;
+        background: #ffffff !important;
     }
-    p, li, div {
-        color: #000000 !important;
-        font-size: 1.1rem !important;
-    }
+    
     .big-title {
-        font-size: 3.8rem !important;
+        font-size: 4.5rem !important;
         font-weight: 800 !important;
-        color: #1b5e20 !important;
-        margin-bottom: 10px !important;
-        padding-bottom: 0 !important;
+        color: #FF6B6B !important;
         text-align: center;
-        text-shadow: 1px 1px 1px rgba(0,0,0,0.1);
+        margin-bottom: 1rem !important;
+        letter-spacing: -2px;
+        text-shadow: none !important;
     }
+    
     .subtitle {
         font-size: 1.8rem !important;
-        color: #01579b !important;
-        font-weight: 600 !important;
-        margin-top: 0 !important;
-        padding-top: 0 !important;
-        margin-bottom: 30px !important;
+        color: #4a4a4a !important;
+        font-weight: 500 !important;
         text-align: center;
+        margin-bottom: 3rem !important;
+        text-shadow: none !important;
     }
+    
     .recipe-card {
-        background-color: white;
-        border-radius: 15px;
-        padding: 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-        transition: transform 0.3s ease;
-        border-left: 5px solid #2E7D32;
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid #e0e0e0;
+        position: relative;
+        overflow: hidden;
     }
+    
     .recipe-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        transform: translateY(-10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
     }
+    
+    .recipe-card::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 6px;
+        background: #FF6B6B;
+    }
+    
     .recipe-title {
-        color: #1b5e20 !important;
-        font-size: 2rem !important;
+        color: #1a1a1a !important;
+        font-size: 2.4rem !important;
         font-weight: 700 !important;
-        margin-bottom: 15px !important;
+        margin-bottom: 1.5rem !important;
+        letter-spacing: -1px;
     }
-    h1, h2, h3, h4, h5 {
-        color: #01579b !important;
-        font-weight: 700 !important;
-    }
-    h4 {
-        font-size: 1.4rem !important;
-        margin-top: 15px !important;
-        margin-bottom: 10px !important;
-    }
-    .recipe-image {
-        border-radius: 10px;
-        max-width: 100%;
-        border: 2px solid #e0e0e0;
-    }
+    
     .ingredient-tag {
-        background-color: #e8f5e9;
-        border-radius: 20px;
-        padding: 8px 15px;
-        margin: 5px;
+        background: #FFE3E3;
+        border-radius: 50px;
+        padding: 0.8rem 1.5rem;
+        margin: 0.5rem;
         display: inline-block;
         font-size: 1rem;
-        border: 1px solid #4caf50;
-        font-weight: 600;
-        color: #1b5e20 !important;
-    }
-    .input-box {
-        padding: 25px;
-        background-color: white;
-        border-radius: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-        margin-bottom: 25px;
-        border: 1px solid #e0e0e0;
-    }
-    .stButton button {
-        background-color: #2E7D32;
-        color: white !important;
-        border-radius: 20px;
-        padding: 12px 25px;
-        font-weight: 600;
-        font-size: 1.1rem !important;
-    }
-    .stButton button:hover {
-        background-color: #1b5e20;
-    }
-    .stTextInput>div>div>input {
-        font-size: 1.1rem !important;
-        color: #000000 !important;
-    }
-    hr {
-        margin: 30px 0;
-        border-top: 2px solid #e0e0e0;
-    }
-    .info-box {
-        padding: 20px;
-        border-radius: 10px;
-        background-color: #e3f2fd;
-        margin-bottom: 20px;
-        border-left: 4px solid #1976D2;
         font-weight: 500;
-        color: #01579b !important;
+        color: #FF6B6B !important;
+        border: none;
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.15);
+        transition: all 0.3s ease;
     }
+    
+    .ingredient-tag:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.2);
+    }
+    
     .chat-interface {
-        padding: 20px;
-        background-color: white;
-        border-radius: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
-        margin-bottom: 20px;
-        max-height: 400px;
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 2rem;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+        margin-bottom: 2rem;
+        max-height: 600px;
         overflow-y: auto;
         border: 1px solid #e0e0e0;
+        position: relative;
     }
-    .section-title {
-        color: #01579b !important;
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
-        margin-bottom: 15px !important;
-        padding-bottom: 8px !important;
-        border-bottom: 2px solid #90caf9;
+    
+    .chat-interface::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 6px;
+        background: #FF6B6B;
     }
-    .recipe-detail {
-        background-color: #f5f5f5;
-        padding: 8px 15px;
-        border-radius: 8px;
-        margin-bottom: 10px;
-        display: inline-block;
+    
+    .chat-message {
+        padding: 1.2rem;
+        margin-bottom: 1.2rem;
+        border-radius: 18px;
+        max-width: 85%;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        color: #1a1a1a !important;
+    }
+    
+    .user-message {
+        background: #FFE3E3;
+        margin-left: auto;
+        border: none;
+    }
+    
+    .bot-message {
+        background: #f5f5f5;
+        margin-right: auto;
+        border: none;
+    }
+    
+    .stButton button {
+        background: #FF6B6B;
+        color: white !important;
+        border-radius: 50px;
+        padding: 1rem 2rem;
         font-weight: 600;
-        color: #000000 !important;
-        border: 1px solid #e0e0e0;
+        font-size: 1.1rem !important;
+        box-shadow: 0 4px 15px rgba(255, 107, 107, 0.2);
+        transition: all 0.3s ease;
+        border: none;
+        width: 100%;
     }
+    
+    .stButton button:hover {
+        background: #FF8E53;
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(255, 107, 107, 0.3);
+    }
+    
+    .stTextInput>div>div>input {
+        font-size: 1.1rem !important;
+        color: #1a1a1a !important;
+        border-radius: 50px !important;
+        padding: 1rem 1.5rem !important;
+        border: 2px solid #e0e0e0 !important;
+        transition: all 0.3s ease !important;
+        background: white !important;
+    }
+    
+    .stTextInput>div>div>input:focus {
+        border-color: #FF6B6B !important;
+        box-shadow: 0 0 0 4px rgba(255, 107, 107, 0.1) !important;
+    }
+    
+    .recipe-detail {
+        background: #f5f5f5;
+        padding: 1rem 1.5rem;
+        border-radius: 16px;
+        margin-bottom: 1rem;
+        display: inline-block;
+        font-weight: 500;
+        color: #1a1a1a !important;
+        border: none;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    
+    .section-title {
+        color: #1a1a1a !important;
+        font-size: 2.2rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 2rem !important;
+        padding-bottom: 1rem !important;
+        border-bottom: 3px solid #FF6B6B;
+        letter-spacing: -1px;
+    }
+    
     .footer {
         text-align: center;
-        padding: 20px;
-        color: #333333 !important;
+        padding: 2rem;
+        color: #4a4a4a !important;
         font-size: 1rem !important;
         font-weight: 500;
+        margin-top: 3rem;
     }
-    .matched-ingredient {
-        background-color: #e8f5e9;
-        padding: 2px 8px;
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #f1f1f1;
         border-radius: 4px;
-        font-weight: bold;
-        color: #1b5e20 !important;
-        display: inline-block;
-        margin: 2px;
-        border: 1px solid #4caf50;
     }
-    .status-connected {
-        color: #1b5e20 !important;
-        font-weight: bold;
-        background-color: #e8f5e9;
-        padding: 3px 8px;
+    
+    ::-webkit-scrollbar-thumb {
+        background: #FF6B6B;
         border-radius: 4px;
-        border: 1px solid #4caf50;
     }
-    .status-disconnected {
-        color: #b71c1c !important;
-        font-weight: bold;
-        background-color: #ffebee;
-        padding: 3px 8px;
-        border-radius: 4px;
-        border: 1px solid #e57373;
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #FF8E53;
     }
-    .streamlit-expanderHeader {
+    
+    /* Additional text visibility improvements */
+    p, li, div, span {
+        color: #1a1a1a !important;
+    }
+    
+    .stMarkdown {
+        color: #1a1a1a !important;
+    }
+    
+    .stText {
+        color: #1a1a1a !important;
+    }
+    
+    .stAlert {
+        color: #1a1a1a !important;
+    }
+    
+    /* Sidebar styling */
+    .sidebar-content {
+        background: #ffffff !important;
+        padding: 1.5rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+        margin-bottom: 1.5rem !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .sidebar-title {
+        color: #FF6B6B !important;
+        font-size: 1.8rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 1rem !important;
+        text-align: center !important;
+    }
+    
+    .sidebar-subtitle {
+        color: #1a1a1a !important;
+        font-size: 1.4rem !important;
         font-weight: 600 !important;
-        color: #01579b !important;
+        margin: 1.5rem 0 1rem 0 !important;
+    }
+    
+    .sidebar-text {
+        color: #4a4a4a !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .sidebar-list {
+        color: #4a4a4a !important;
+        font-size: 1rem !important;
+        line-height: 1.6 !important;
+        padding-left: 1.5rem !important;
+    }
+    
+    .sidebar-list li {
+        color: #4a4a4a !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    .status-connected {
+        color: #2ecc71 !important;
+        font-weight: 600 !important;
+        background: #e8f5e9 !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 50px !important;
+        display: inline-block !important;
+        margin: 0.25rem 0 !important;
+    }
+    
+    .status-disconnected {
+        color: #e74c3c !important;
+        font-weight: 600 !important;
+        background: #ffebee !important;
+        padding: 0.5rem 1rem !important;
+        border-radius: 50px !important;
+        display: inline-block !important;
+        margin: 0.25rem 0 !important;
+    }
+    
+    .api-status-container {
+        background: #ffffff !important;
+        padding: 1.5rem !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+        margin-top: 1.5rem !important;
+        border: 1px solid #e0e0e0 !important;
+    }
+    
+    .api-status-title {
+        color: #FF6B6B !important;
+        font-size: 1.4rem !important;
+        font-weight: 600 !important;
+        margin-bottom: 1rem !important;
+    }
+    
+    .api-status-item {
+        display: flex !important;
+        align-items: center !important;
+        margin-bottom: 0.75rem !important;
+    }
+    
+    .api-status-label {
+        color: #4a4a4a !important;
+        font-weight: 500 !important;
+        margin-right: 0.5rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -373,25 +527,39 @@ col1, col2 = st.columns([1, 2], gap="large")
 with col1:
     st.markdown("<h2 class='section-title'>What's in your pantry?</h2>", unsafe_allow_html=True)
     
-    # Input box
-    with st.container():
-        st.markdown("<div class='input-box'>", unsafe_allow_html=True)
-        st.text_input(
-            "Enter your ingredients separated by commas:",
-            key="ingredients_input",
-            placeholder="e.g., eggs, butter, milk, flour"
-        )
-        st.button("Find Recipes", on_click=search_button_click)
-        st.markdown("</div>", unsafe_allow_html=True)
-    
     # Chat interface
+    st.markdown("<div class='chat-interface'>", unsafe_allow_html=True)
+    
+    # Display chat history
     if st.session_state['generated']:
-        st.markdown("<h3 class='section-title'>Chat History</h3>", unsafe_allow_html=True)
-        st.markdown("<div class='chat-interface'>", unsafe_allow_html=True)
         for i in range(len(st.session_state['generated'])):
-            message(st.session_state['past'][i], is_user=True, key=f"user_{i}")
-            message(st.session_state['generated'][i], key=f"bot_{i}")
-        st.markdown("</div>", unsafe_allow_html=True)
+            # User message
+            st.markdown(f"""
+                <div class='chat-message user-message'>
+                    <strong>You:</strong><br>
+                    {st.session_state['past'][i]}
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # Bot message
+            st.markdown(f"""
+                <div class='chat-message bot-message'>
+                    <strong>Ingreedy:</strong><br>
+                    {st.session_state['generated'][i]}
+                </div>
+            """, unsafe_allow_html=True)
+    
+    # Input box
+    st.markdown("<div class='chat-input'>", unsafe_allow_html=True)
+    st.text_input(
+        "Enter your ingredients separated by commas:",
+        key="ingredients_input",
+        placeholder="e.g., eggs, butter, milk, flour"
+    )
+    st.button("Find Recipes", on_click=search_button_click)
+    st.markdown("</div>", unsafe_allow_html=True)
+    
+    st.markdown("</div>", unsafe_allow_html=True)
     
     # Ingredient suggestions
     st.markdown("<h3 class='section-title'>Popular Ingredients</h3>", unsafe_allow_html=True)
@@ -533,21 +701,21 @@ st.markdown("<div class='footer'>Ingreedy - Find delicious recipes with ingredie
 
 # Sidebar with API status and information
 with st.sidebar:
-    st.markdown("<h2 style='text-align: center;'>About Ingreedy</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='sidebar-title'>About Ingreedy</h2>", unsafe_allow_html=True)
     
     st.markdown("""
-    <div style="background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;">
-    <p>Ingreedy helps you find recipes based on ingredients you have at home.</p>
+    <div class="sidebar-content">
+    <p class="sidebar-text">Ingreedy helps you find recipes based on ingredients you have at home.</p>
     
-    <p>Just enter the ingredients you have separated by commas, and Ingreedy will find recipes you can make!</p>
+    <p class="sidebar-text">Just enter the ingredients you have separated by commas, and Ingreedy will find recipes you can make!</p>
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("""
-    <div style="background-color: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-    <h3 style="margin-top: 0;">How It Works</h3>
-    <p>The app uses machine learning to match your ingredients to recipes:</p>
-    <ol>
+    <div class="sidebar-content">
+    <h3 class="sidebar-subtitle">How It Works</h3>
+    <p class="sidebar-text">The app uses machine learning to match your ingredients to recipes:</p>
+    <ol class="sidebar-list">
         <li><strong>Direct Match</strong>: First looks for recipes containing your ingredients</li>
         <li><strong>KMeans Clustering</strong>: If no direct match, finds similar recipes using KMeans</li>
         <li><strong>Hierarchical Search</strong>: Fallback approach to find recipes with at least some of your ingredients</li>
@@ -555,7 +723,7 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     
-    st.markdown("<h3 style='margin-top: 20px;'>API Status</h3>", unsafe_allow_html=True)
+    st.markdown("<h3 class='sidebar-subtitle'></h3>", unsafe_allow_html=True)
     
     # Safely check API status with proper exception handling
     try:
@@ -573,20 +741,27 @@ with st.sidebar:
         fastapi_class = "status-disconnected"
     
     st.markdown(f"""
-    <div style="background-color: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
-    <p>Flask API: <span class="{flask_class}">{flask_status}</span></p>
-    <p>FastAPI: <span class="{fastapi_class}">{fastapi_status}</span></p>
+    <div class="api-status-container">
+    <h3 class="api-status-title">API Status</h3>
+    <div class="api-status-item">
+        <span class="api-status-label">Flask API:</span>
+        <span class="{flask_class}">{flask_status}</span>
+    </div>
+    <div class="api-status-item">
+        <span class="api-status-label">FastAPI:</span>
+        <span class="{fastapi_class}">{fastapi_status}</span>
+    </div>
     </div>
     """, unsafe_allow_html=True)
     
     # Show a message if APIs aren't connected
     if flask_status == "❌ Not Connected" and fastapi_status == "❌ Not Connected":
         st.markdown("""
-        <div style="background-color: #ffebee; padding: 15px; border-radius: 10px; border-left: 4px solid #d32f2f; margin-top: 15px;">
-        <p style="margin-top: 0;">⚠️ API servers not detected. The app is running in demo mode with sample recipes.</p>
+        <div class="sidebar-content" style="background-color: #ffebee; border-left: 4px solid #e74c3c;">
+        <p class="sidebar-text" style="margin-top: 0;">⚠️ API servers not detected. The app is running in demo mode with sample recipes.</p>
         
-        <p>To use the full application:
-        <ol>
+        <p class="sidebar-text">To use the full application:
+        <ol class="sidebar-list">
             <li>Make sure MongoDB is running</li>
             <li>Run <code>python run_all.py</code> from the command line</li>
         </ol>

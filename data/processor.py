@@ -8,6 +8,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv import load_dotenv
+from sklearn.model_selection import train_test_split
+from typing import List, Dict, Tuple, Optional
+import joblib
 
 # Load environment variables
 load_dotenv()
@@ -27,6 +30,10 @@ class RecipeProcessor:
         self.ingredient_vectors = None
         self.kmeans_model = None
         self.hierarchical_model = None
+        self.vectorizer = TfidfVectorizer()
+        self.kmeans = None
+        self.hierarchical = None
+        self.ingredients_vectors = None
         
     def load_data_from_mongodb(self):
         """Load recipe data from MongoDB"""
@@ -39,83 +46,27 @@ class RecipeProcessor:
         print(f"Loaded {len(self.recipes_df)} recipes from MongoDB")
         return True
     
-    def load_data_from_json(self, filename="raw_data/recipes.json"):
-        """Load recipe data from JSON file as fallback"""
-        if not os.path.exists(filename):
-            print(f"File {filename} not found")
+    def load_data_from_json(self, file_path: str = os.path.join("data", "raw_data", "recipes.json")) -> bool:
+        """Load recipe data from JSON file"""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                self.recipes_df = pd.DataFrame(data['recipes'])
+                print(f"Loaded {len(self.recipes_df)} recipes from JSON")
+                return True
+        except Exception as e:
+            print(f"Error loading data from JSON: {str(e)}")
             return False
-        
-        with open(filename, 'r', encoding='utf-8') as f:
-            recipes = json.load(f)
-        
-        self.recipes_df = pd.DataFrame(recipes)
-        print(f"Loaded {len(self.recipes_df)} recipes from JSON file")
-        return True
     
     def preprocess_ingredients(self):
         """Preprocess ingredients for vectorization"""
         if self.recipes_df is None:
-            print("No data loaded. Please load data first.")
-            return False
-        
-        # Check if ingredients column exists and is not empty
-        if 'ingredients' not in self.recipes_df.columns:
-            print("No 'ingredients' column found in data")
-            return False
-        
-        # Check for valid ingredients data
-        valid_recipes = []
-        for _, recipe in self.recipes_df.iterrows():
-            if ('ingredients' in recipe and 
-                isinstance(recipe['ingredients'], list) and 
-                len(recipe['ingredients']) > 0):
-                valid_recipes.append(True)
-            else:
-                valid_recipes.append(False)
-        
-        # Filter out invalid recipes
-        if not all(valid_recipes):
-            print(f"Found {valid_recipes.count(False)} recipes with invalid ingredients data")
-            self.recipes_df = self.recipes_df[valid_recipes]
-            print(f"Filtered to {len(self.recipes_df)} valid recipes")
-        
-        # Function to clean ingredients text
-        def clean_ingredient(ingredient):
-            if not isinstance(ingredient, str):
-                return ""
-            # Remove quantities and measurements
-            cleaned = re.sub(r'^\d+\s*[/\d]*\s*[a-zA-Z]*\s', '', ingredient.lower())
-            # Remove parentheses and their content
-            cleaned = re.sub(r'\([^)]*\)', '', cleaned)
-            # Remove additional specifications
-            cleaned = re.sub(r',.*$', '', cleaned)
-            # Remove special characters
-            cleaned = re.sub(r'[^\w\s]', ' ', cleaned)
-            # Remove extra whitespace
-            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-            return cleaned
-        
-        # Create clean ingredients text for vectorization
-        self.recipes_df['ingredients_clean'] = self.recipes_df['ingredients'].apply(
-            lambda ingredients: [clean_ingredient(ing) for ing in ingredients]
+            raise ValueError("No data loaded. Call load_data_from_json first.")
+            
+        # Convert ingredients lists to strings
+        self.recipes_df['ingredients_text'] = self.recipes_df['ingredients'].apply(
+            lambda x: ' '.join(x) if isinstance(x, list) else x
         )
-        
-        # Create text representation for vectorization
-        self.recipes_df['ingredients_text'] = self.recipes_df['ingredients_clean'].apply(
-            lambda ingredients: ' '.join([ing for ing in ingredients if ing])
-        )
-        
-        # Create simplified list of ingredients for matching
-        self.recipes_df['ingredients_simple'] = self.recipes_df['ingredients_clean'].apply(
-            lambda ingredients: [ing for ing in ingredients if ing]
-        )
-        
-        # Verify we have non-empty ingredients text
-        empty_text = self.recipes_df['ingredients_text'].str.strip() == ''
-        if empty_text.any():
-            print(f"Warning: {empty_text.sum()} recipes have empty ingredients text")
-            self.recipes_df = self.recipes_df[~empty_text]
-            print(f"Filtered to {len(self.recipes_df)} recipes with non-empty ingredients")
         
         print("Preprocessed ingredients")
         # Print sample ingredients
@@ -123,246 +74,208 @@ class RecipeProcessor:
         for i, (_, recipe) in enumerate(self.recipes_df.head(3).iterrows()):
             print(f"Recipe {i+1}:")
             print(f"  Original: {recipe['ingredients'][:3]}...")
-            print(f"  Cleaned: {recipe['ingredients_clean'][:3]}...")
             print(f"  Text: {recipe['ingredients_text'][:100]}...")
             print()
         
-        return True
-    
     def vectorize_ingredients(self):
-        """Vectorize ingredients using TF-IDF"""
+        """Convert ingredients to TF-IDF vectors"""
         if 'ingredients_text' not in self.recipes_df.columns:
-            print("Ingredients not preprocessed. Please preprocess first.")
-            return False
-        
-        # Check if we have valid data to vectorize
-        if self.recipes_df['ingredients_text'].str.strip().str.len().sum() == 0:
-            print("Warning: No ingredient text found to vectorize")
-            return False
+            raise ValueError("Ingredients not preprocessed. Call preprocess_ingredients first.")
             
-        # DEBUG: Print a sample of ingredients text
+        self.ingredients_vectors = self.vectorizer.fit_transform(
+            self.recipes_df['ingredients_text']
+        )
+        
+        print("Vectorizing ingredients...")
         print("Sample ingredients text for vectorization:")
         for text in self.recipes_df['ingredients_text'].head(3):
             print(f"- {text}")
         
-        # Create TF-IDF vectors for ingredients
-        self.ingredient_vectorizer = TfidfVectorizer(
-            max_features=1000,
-            stop_words=None,  # No stop words to keep all food terms
-            min_df=2,  # Minimum document frequency (remove very rare terms)
-            ngram_range=(1, 2),
-            token_pattern=r'(?u)\b\w+\b'  # Simple token pattern to capture more terms
+    def apply_kmeans_clustering(self, n_clusters: int = 5):
+        """Apply K-means clustering to recipes"""
+        if self.ingredients_vectors is None:
+            raise ValueError("Ingredients not vectorized. Call vectorize_ingredients first.")
+            
+        # Adjust number of clusters based on dataset size
+        n_samples = len(self.recipes_df)
+        if n_samples < n_clusters:
+            n_clusters = max(2, n_samples)
+            print(f"Adjusted number of clusters to {n_clusters} based on dataset size")
+            
+        self.kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        self.recipes_df['kmeans_cluster'] = self.kmeans.fit_predict(self.ingredients_vectors)
+        
+    def apply_hierarchical_clustering(self, n_clusters: int = 5):
+        """Apply hierarchical clustering to recipes"""
+        if self.ingredients_vectors is None:
+            raise ValueError("Ingredients not vectorized. Call vectorize_ingredients first.")
+            
+        # Adjust number of clusters based on dataset size
+        n_samples = len(self.recipes_df)
+        if n_samples < n_clusters:
+            n_clusters = max(2, n_samples)
+            print(f"Adjusted number of clusters to {n_clusters} based on dataset size")
+            
+        self.hierarchical = AgglomerativeClustering(n_clusters=n_clusters)
+        self.recipes_df['hierarchical_cluster'] = self.hierarchical.fit_predict(
+            self.ingredients_vectors.toarray()
         )
         
-        try:
-            # Fit and transform the data
-            self.ingredient_vectors = self.ingredient_vectorizer.fit_transform(
-                self.recipes_df['ingredients_text']
-            )
+    def find_recipes_by_ingredients(self, 
+                                  ingredients: List[str], 
+                                  cuisine_type: Optional[str] = None,
+                                  diet_type: Optional[str] = None,
+                                  max_cook_time: Optional[int] = None,
+                                  difficulty: Optional[str] = None,
+                                  max_calories: Optional[int] = None,
+                                  max_results: int = 5) -> List[Dict]:
+        """
+        Find recipes based on ingredients and additional filters
+        
+        Args:
+            ingredients: List of ingredients to search for
+            cuisine_type: Type of cuisine (e.g., 'Italian', 'Asian')
+            diet_type: Type of diet (e.g., 'Vegetarian', 'Vegan')
+            max_cook_time: Maximum cooking time in minutes
+            difficulty: Recipe difficulty level (e.g., 'Easy', 'Medium')
+            max_calories: Maximum calories per serving
+            max_results: Maximum number of results to return
+        """
+        if self.recipes_df is None or self.ingredients_vectors is None:
+            raise ValueError("Data not processed. Call load_data_from_json and process data first.")
             
-            # Debug: Print vocabulary info
-            vocabulary = self.ingredient_vectorizer.get_feature_names_out()
-            print(f"Vectorized ingredients with {len(vocabulary)} features")
-            if len(vocabulary) > 0:
-                print(f"Sample features: {', '.join(list(vocabulary)[:10])}")
-            else:
-                print("WARNING: Empty vocabulary created")
+        # Convert input ingredients to vector
+        ingredients_text = ' '.join(ingredients)
+        ingredients_vector = self.vectorizer.transform([ingredients_text])
+        
+        # Calculate similarity with all recipes
+        similarities = cosine_similarity(ingredients_vector, self.ingredients_vectors)[0]
+        
+        # Create a copy of the DataFrame with similarities
+        results_df = self.recipes_df.copy()
+        results_df['similarity'] = similarities
+        
+        # Apply filters
+        if cuisine_type:
+            results_df = results_df[results_df['cuisine'].str.lower() == cuisine_type.lower()]
             
-            return True
-        except ValueError as e:
-            print(f"Error in vectorization: {e}")
-            print("Attempting backup vectorization method...")
+        if diet_type:
+            results_df = results_df[results_df['diet_type'].str.lower() == diet_type.lower()]
             
-            # Backup vectorization with even simpler parameters
-            self.ingredient_vectorizer = TfidfVectorizer(
-                max_features=1000,
-                stop_words=None,
-                min_df=1,  # Include all terms
-                token_pattern=r'(?u)\b\w\w+\b'  # At least 2 characters
-            )
+        if max_cook_time:
+            # Convert cook_time to minutes
+            results_df['cook_minutes'] = results_df['cook_time'].str.extract('(\d+)').astype(float)
+            results_df = results_df[results_df['cook_minutes'] <= max_cook_time]
             
-            self.ingredient_vectors = self.ingredient_vectorizer.fit_transform(
-                self.recipes_df['ingredients_text']
-            )
+        if difficulty:
+            results_df = results_df[results_df['difficulty'].str.lower() == difficulty.lower()]
             
-            vocabulary = self.ingredient_vectorizer.get_feature_names_out()
-            print(f"Backup vectorization with {len(vocabulary)} features")
-            print(f"Sample features: {', '.join(list(vocabulary)[:10])}")
+        if max_calories:
+            results_df = results_df[results_df['calories_per_serving'] <= max_calories]
             
-            return True
+        # Sort by similarity and return top results
+        top_recipes = results_df.nlargest(max_results, 'similarity')
+        
+        return top_recipes.to_dict('records')
     
-    def apply_kmeans_clustering(self, n_clusters=20):
-        """Apply KMeans clustering to ingredient vectors"""
-        if self.ingredient_vectors is None:
-            print("Ingredients not vectorized. Please vectorize first.")
-            return False
+    def get_recipe_stats(self) -> Dict:
+        """Get statistics about the recipe database"""
+        if self.recipes_df is None:
+            raise ValueError("No data loaded")
+            
+        stats = {
+            'total_recipes': len(self.recipes_df),
+            'cuisines': self.recipes_df['cuisine'].value_counts().to_dict(),
+            'diet_types': self.recipes_df['diet_type'].value_counts().to_dict(),
+            'difficulty_levels': self.recipes_df['difficulty'].value_counts().to_dict(),
+            'avg_calories': self.recipes_df['calories_per_serving'].mean(),
+            'avg_cook_time': self.recipes_df['cook_time'].str.extract('(\d+)').astype(float).mean()
+        }
         
-        # If we have few recipes, adjust the number of clusters
-        if len(self.recipes_df) < n_clusters:
-            n_clusters = max(2, len(self.recipes_df) // 2)
-            print(f"Adjusted number of clusters to {n_clusters} based on data size")
+        return stats
         
-        # Apply KMeans clustering
-        self.kmeans_model = KMeans(
-            n_clusters=n_clusters,
-            random_state=42,
-            n_init=10
-        )
+    def get_recipe_recommendations(self, recipe_id: str, max_results: int = 3) -> List[Dict]:
+        """Get similar recipe recommendations based on a recipe ID"""
+        if self.recipes_df is None or self.ingredients_vectors is None:
+            raise ValueError("Data not processed")
+            
+        # Find the recipe
+        recipe = self.recipes_df[self.recipes_df['id'] == recipe_id]
+        if len(recipe) == 0:
+            raise ValueError(f"Recipe with ID {recipe_id} not found")
+            
+        # Get the recipe's vector
+        recipe_idx = recipe.index[0]
+        recipe_vector = self.ingredients_vectors[recipe_idx]
         
-        clusters = self.kmeans_model.fit_predict(self.ingredient_vectors)
-        self.recipes_df['cluster_kmeans'] = clusters
+        # Calculate similarities
+        similarities = cosine_similarity(recipe_vector, self.ingredients_vectors)[0]
         
-        # Get cluster centers for later similarity calculations
-        self.cluster_centers = self.kmeans_model.cluster_centers_
+        # Add similarities to DataFrame
+        results_df = self.recipes_df.copy()
+        results_df['similarity'] = similarities
         
-        print(f"Applied KMeans clustering with {n_clusters} clusters")
-        return True
-    
-    def apply_hierarchical_clustering(self, n_clusters=50):
-        """Apply hierarchical clustering to ingredient vectors"""
-        if self.ingredient_vectors is None:
-            print("Ingredients not vectorized. Please vectorize first.")
-            return False
+        # Remove the original recipe
+        results_df = results_df[results_df['id'] != recipe_id]
         
-        # If we have few recipes, adjust the number of clusters
-        if len(self.recipes_df) < n_clusters:
-            n_clusters = max(2, len(self.recipes_df) // 2)
-            print(f"Adjusted number of clusters to {n_clusters} based on data size")
+        # Get top similar recipes
+        recommendations = results_df.nlargest(max_results, 'similarity')
         
-        # Apply hierarchical clustering
-        self.hierarchical_model = AgglomerativeClustering(
-            n_clusters=n_clusters,
-            metric='euclidean',
-            linkage='ward'
-        )
-        
-        clusters = self.hierarchical_model.fit_predict(self.ingredient_vectors.toarray())
-        self.recipes_df['cluster_hierarchical'] = clusters
-        
-        print(f"Applied hierarchical clustering with {n_clusters} clusters")
-        return True
+        return recommendations.to_dict('records')
     
     def save_processed_data(self):
-        """Save processed data to MongoDB"""
+        """Save processed data and models"""
         if self.recipes_df is None:
-            print("No data processed. Please process data first.")
+            raise ValueError("No data to save. Process data first.")
+            
+        os.makedirs(os.path.join("data", "processed_data"), exist_ok=True)
+        
+        # Save processed DataFrame
+        self.recipes_df.to_json(os.path.join("data", "processed_data", "processed_recipes.json"), orient='records')
+        
+        # Save models
+        joblib.dump(self.vectorizer, os.path.join("data", "processed_data", "vectorizer.joblib"))
+        joblib.dump(self.kmeans, os.path.join("data", "processed_data", "kmeans.joblib"))
+        joblib.dump(self.hierarchical, os.path.join("data", "processed_data", "hierarchical.joblib"))
+        
+    def split_data(self, test_size: float = 0.2, random_state: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Split data into training and testing sets"""
+        if self.recipes_df is None:
+            raise ValueError("No data loaded. Call load_data_from_json first.")
+            
+        train_df, test_df = train_test_split(
+            self.recipes_df, 
+            test_size=test_size, 
+            random_state=random_state
+        )
+        
+        # Save split datasets
+        os.makedirs(os.path.join("data", "processed_data"), exist_ok=True)
+        train_df.to_json(os.path.join("data", "processed_data", "train_recipes.json"), orient='records')
+        test_df.to_json(os.path.join("data", "processed_data", "test_recipes.json"), orient='records')
+        
+        return train_df, test_df
+    
+    def load_processed_data(self):
+        """Load processed data and models"""
+        try:
+            # Load processed DataFrame
+            self.recipes_df = pd.read_json(os.path.join("data", "processed_data", "processed_recipes.json"))
+            
+            # Load models
+            self.vectorizer = joblib.load(os.path.join("data", "processed_data", "vectorizer.joblib"))
+            self.kmeans = joblib.load(os.path.join("data", "processed_data", "kmeans.joblib"))
+            self.hierarchical = joblib.load(os.path.join("data", "processed_data", "hierarchical.joblib"))
+            
+            # Recreate ingredients vectors
+            self.ingredients_vectors = self.vectorizer.transform(
+                self.recipes_df['ingredients_text']
+            )
+            
+            return True
+        except Exception as e:
+            print(f"Error loading processed data: {str(e)}")
             return False
-        
-        # Convert DataFrame to list of dictionaries
-        recipes_list = self.recipes_df.to_dict('records')
-        
-        # Clear existing processed recipes
-        processed_collection.delete_many({})
-        
-        # Insert processed recipes
-        processed_collection.insert_many(recipes_list)
-        
-        print(f"Saved {len(recipes_list)} processed recipes to MongoDB")
-        return True
-    
-    def find_recipes_by_ingredients(self, ingredients_list):
-        """Find recipes that match the given ingredients"""
-        if self.recipes_df is None:
-            print("No data processed. Please process data first.")
-            return []
-        
-        # Normalize input ingredients
-        ingredients_list = [ingredient.lower().strip() for ingredient in ingredients_list]
-        
-        # First, try to find exact matches (recipes containing all ingredients)
-        exact_matches = []
-        for _, recipe in self.recipes_df.iterrows():
-            recipe_ingredients = recipe['ingredients_simple']
-            if all(any(query_ing in recipe_ing for recipe_ing in recipe_ingredients) 
-                  for query_ing in ingredients_list):
-                exact_matches.append(recipe.to_dict())
-        
-        if exact_matches:
-            print(f"Found {len(exact_matches)} exact matches")
-            return exact_matches
-        
-        # If no exact matches, use clustering
-        print("No exact matches found, using clustering")
-        return self.find_similar_recipes_by_clustering(ingredients_list)
-    
-    def find_similar_recipes_by_clustering(self, ingredients_list):
-        """Find similar recipes using clustering"""
-        if self.ingredient_vectorizer is None or self.kmeans_model is None:
-            print("Models not trained. Please train models first.")
-            return []
-        
-        # Create a document from the ingredients list
-        ingredients_text = ' '.join(ingredients_list)
-        
-        # Vectorize the query ingredients
-        query_vector = self.ingredient_vectorizer.transform([ingredients_text])
-        
-        # Try KMeans first
-        kmeans_similar = self._find_by_kmeans(query_vector)
-        if kmeans_similar:
-            return kmeans_similar
-        
-        # If KMeans doesn't give good results, use hierarchical
-        return self._find_by_hierarchical(ingredients_list)
-    
-    def _find_by_kmeans(self, query_vector):
-        """Find similar recipes using KMeans clustering"""
-        # Predict the cluster for the query
-        cluster_id = self.kmeans_model.predict(query_vector)[0]
-        
-        # Find recipes in the same cluster
-        cluster_recipes = self.recipes_df[self.recipes_df['cluster_kmeans'] == cluster_id]
-        
-        # If no recipes in cluster, return empty list
-        if len(cluster_recipes) == 0:
-            return []
-        
-        # Calculate similarity with each recipe in the cluster
-        similarities = cosine_similarity(
-            query_vector, 
-            self.ingredient_vectors[cluster_recipes.index]
-        )[0]
-        
-        # Add similarity scores
-        cluster_recipes = cluster_recipes.copy()
-        cluster_recipes['similarity'] = similarities
-        
-        # Sort by similarity
-        similar_recipes = cluster_recipes.sort_values('similarity', ascending=False)
-        
-        # Return top 5 most similar recipes
-        result = similar_recipes.head(5).to_dict('records')
-        
-        print(f"Found {len(result)} recipes using KMeans clustering")
-        return result
-    
-    def _find_by_hierarchical(self, ingredients_list):
-        """Find similar recipes using ingredient-by-ingredient matching"""
-        # Create a score for each recipe based on matching ingredients
-        scores = []
-        for _, recipe in self.recipes_df.iterrows():
-            recipe_ingredients = recipe['ingredients_simple']
-            
-            # Count how many query ingredients are in the recipe
-            matches = sum(any(query_ing in recipe_ing for recipe_ing in recipe_ingredients) 
-                          for query_ing in ingredients_list)
-            
-            # Calculate a match score
-            match_ratio = matches / len(ingredients_list) if len(ingredients_list) > 0 else 0
-            
-            scores.append({
-                'recipe': recipe.to_dict(),
-                'match_score': match_ratio
-            })
-        
-        # Sort by match score
-        scores.sort(key=lambda x: x['match_score'], reverse=True)
-        
-        # Return top 5 matches
-        result = [item['recipe'] for item in scores[:5]]
-        
-        print(f"Found {len(result)} recipes using hierarchical approach")
-        return result
 
 def main():
     """Main function to process recipe data"""
